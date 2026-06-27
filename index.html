@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>비주얼 노벨 스튜디오</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -774,9 +775,6 @@
 </head>
 <body>
 
-<!-- ══════════════════════════════════
-     홈 화면
-══════════════════════════════════ -->
 <div id="home-screen">
   <nav class="home-nav">
     <div class="home-logo">
@@ -796,30 +794,22 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     워크스페이스
-══════════════════════════════════ -->
 <div id="workspace-screen" style="display:flex; height:100vh;">
 
   <div id="left-panel">
-    <!-- 워크스페이스 상단 -->
     <div class="workspace-nav">
       <button class="btn btn-ghost" onclick="goHome()">← 홈</button>
       <span class="workspace-title" id="current-story-title-display">스토리 제목</span>
       <button class="btn btn-primary" onclick="togglePlayMode(false)">▶ 테스트</button>
     </div>
 
-    <!-- 탭 -->
     <div class="tab-bar">
       <button id="tab-write-btn" class="tab-btn active" onclick="switchTab('write')">✍️ 대사 & 연출</button>
       <button id="tab-setup-btn" class="tab-btn" onclick="switchTab('setup')">👥 자캐 & 비주얼</button>
     </div>
 
     <div class="panel-scroll">
-
-      <!-- ── 대사 탭 ── -->
       <div id="tab-write">
-
         <div class="section">
           <div class="section-label">발화 자캐 선택</div>
           <div id="char-tags" class="char-tags"></div>
@@ -858,12 +848,9 @@
           </div>
           <button class="save-btn" onclick="addOrUpdateScene()">슬라이드 저장</button>
         </div>
-
       </div>
 
-      <!-- ── 자캐 탭 ── -->
       <div id="tab-setup" style="display:none;">
-
         <div class="section">
           <div class="section-label">화면 배치 (좌 / 중 / 우)</div>
           <div class="slot-grid">
@@ -921,19 +908,15 @@
           </div>
           <button class="save-btn" onclick="saveCharacterProfile()">자캐 등록</button>
         </div>
-
       </div>
 
-      <!-- 슬라이드 타임라인 -->
       <div class="timeline">
         <div class="timeline-label">슬라이드 순서 — 드래그로 이동</div>
         <div id="scene-list" class="scene-list"></div>
       </div>
-
     </div>
   </div>
 
-  <!-- ── 프리뷰 / 플레이어 ── -->
   <div id="preview-container">
     <div class="play-banner" id="play-mode-banner" onclick="exitPlayMode()">⏸ 플레이 모드 종료 (클릭)</div>
     <div id="game-screen">
@@ -947,24 +930,17 @@
       </div>
     </div>
   </div>
-
 </div>
 
 <script>
-  /* ── 데이터 ── */
-  let stories = {
-    "동아리실의 하루": [
-      { bg: "https://picsum.photos/640/480?random=90", charId: "narration", name: "나레이션", text: "정적만이 가득하던 부실의 문이 거칠게 열렸다.", textEffect: "normal", charEffect: "none", slots: {left:"",center:"",right:""} },
-      { bg: "https://picsum.photos/640/480?random=90", charId: "자캐 A", name: "[방송부] 자캐 A", text: "늦어서 미안!! 회의 벌써 시작했어?!", textEffect: "yell", charEffect: "left", slots: {left:"자캐 A",center:"",right:"자캐 B"} },
-      { bg: "https://picsum.photos/640/480?random=90", charId: "자캐 B", name: "[학생회] 자캐 B", text: "늘 늦는군, 방송부장.", textEffect: "normal", charEffect: "none", slots: {left:"자캐 A",center:"",right:"자캐 B"} }
-    ]
-  };
+  /* ── 🛰️ 수파베이스 연동 설정 완료! ── */
+  const SUPABASE_URL = "https://xyacthmcxeryziymouvk.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_HsOaCpbpbopn8ErCs6aB-Q_lr4OKj1x";
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  let characters = {
-    "자캐 A": { name:"자캐 A", club:"방송부", color:"#e8450a", img:"https://images.vrml.kro.kr/character_sample.png", customHeight:310, customBottom:90 },
-    "자캐 B": { name:"자캐 B", club:"학생회", color:"#0891b2", img:"https://images.vrml.kro.kr/character_sample.png", customHeight:310, customBottom:90 }
-  };
-
+  /* ── 기본 데이터 구조 ── */
+  let stories = {};
+  let characters = {};
   let currentStoryTitle = "";
   let scenes = [];
   let selectedCharId = null;
@@ -974,10 +950,11 @@
   let playIndex = 0;
   let typingTimer;
 
-  /* ── 초기화 ── */
-  window.onload = function () {
-    if (localStorage.getItem('vns_stories_v9')) stories = JSON.parse(localStorage.getItem('vns_stories_v9'));
-    if (localStorage.getItem('vns_chars_v9'))   characters = JSON.parse(localStorage.getItem('vns_chars_v9'));
+  /* ── 서버로부터 초기 데이터 로드 ── */
+  window.onload = async function () {
+    await loadCharactersFromSupabase();
+    await loadStoriesFromSupabase();
+
     renderStoryGrid();
     renderCharacterTags();
     updateSlotSelectors();
@@ -990,7 +967,28 @@
     }
   };
 
-  /* ── 홈 화면 ── */
+  async function loadCharactersFromSupabase() {
+    const { data, error } = await supabase.from('characters').select('*');
+    if (!error && data) {
+      characters = {};
+      data.forEach(c => {
+        characters[c.id] = {
+          name: c.name, club: c.club, color: c.color, img: c.img,
+          customHeight: c.custom_height, customBottom: c.custom_bottom
+        };
+      });
+    }
+  }
+
+  async function loadStoriesFromSupabase() {
+    const { data, error } = await supabase.from('stories').select('*');
+    if (!error && data) {
+      stories = {};
+      data.forEach(s => { stories[s.title] = s.scenes; });
+    }
+  }
+
+  /* ── 홈 화면 컨트롤 ── */
   function renderStoryGrid() {
     const grid = document.getElementById('story-grid');
     grid.innerHTML = '';
@@ -1029,26 +1027,30 @@
     });
   }
 
-  function createNewStoryPrompt() {
+  async function createNewStoryPrompt() {
     const title = prompt("새 스토리 제목을 입력하세요:");
     if (!title || !title.trim()) return;
     if (stories[title]) { alert("이미 같은 제목의 스토리가 있어요."); return; }
-    stories[title] = [{
+    
+    const initialScene = [{
       bg: "https://picsum.photos/640/480?random=" + Math.floor(Math.random() * 100),
       charId: "narration", name: "나레이션",
       text: "여기에 첫 대사나 분위기를 적어보세요.",
       textEffect: "normal", charEffect: "none",
       slots: { left:"", center:"", right:"" }
     }];
-    saveAllToStorage();
+
+    // 서버 저장
+    await supabase.from('stories').upsert({ title: title, scenes: initialScene });
+    stories[title] = initialScene;
     renderStoryGrid();
   }
 
-  function deleteStory(title, event) {
+  async function deleteStory(title, event) {
     event.stopPropagation();
-    if (!confirm(`"${title}"을 삭제할까요?`)) return;
+    if (!confirm(`"${title}"을 삭제할까요? 클라우드에서도 함께 삭제됩니다.`)) return;
+    await supabase.from('stories').delete().eq('title', title);
     delete stories[title];
-    saveAllToStorage();
     renderStoryGrid();
   }
 
@@ -1070,7 +1072,6 @@
   }
 
   function goHome() {
-    saveAllToStorage();
     window.history.replaceState({}, document.title, window.location.pathname);
     exitPlayMode();
     isFullPlayerMode = false;
@@ -1090,7 +1091,6 @@
     selectScene(0);
   }
 
-  /* ── 탭 전환 ── */
   function switchTab(tabId) {
     document.getElementById('tab-write-btn').className = 'tab-btn' + (tabId === 'write' ? ' active' : '');
     document.getElementById('tab-setup-btn').className = 'tab-btn' + (tabId === 'setup' ? ' active' : '');
@@ -1098,7 +1098,7 @@
     document.getElementById('tab-setup').style.display = tabId === 'setup' ? 'block' : 'none';
   }
 
-  /* ── 캐릭터 ── */
+  /* ── 자캐 프로필 처리 ── */
   function saveCharacterProfile() {
     const name = document.getElementById('char-name').value.trim();
     const club = document.getElementById('char-club').value.trim();
@@ -1117,15 +1117,23 @@
     }
   }
 
-  function execReg(name, club, color, img, h, b) {
+  async function execReg(name, club, color, img, h, b) {
+    const { error } = await supabase.from('characters').upsert({
+      id: name, name, club, color, img, custom_height: h, custom_bottom: b
+    });
+
+    if (error) {
+      alert("서버 자캐 등록 실패: " + error.message);
+      return;
+    }
+
     characters[name] = { name, club, color, img, customHeight: h, customBottom: b };
-    saveAllToStorage();
     renderCharacterTags();
     updateSlotSelectors();
     document.getElementById('char-name').value = '';
     document.getElementById('char-club').value = '';
     document.getElementById('char-file-input').value = '';
-    alert(`${club ? `[${club}] ` : ''}${name} 등록 완료!`);
+    alert(`${club ? `[${club}] ` : ''}${name} 클라우드 동기화 완료!`);
   }
 
   function renderCharacterTags() {
@@ -1163,15 +1171,15 @@
     });
   }
 
-  /* ── 슬라이드 리스트 ── */
+  /* ── 슬라이드 연출 제어 ── */
   function initSortable() {
     Sortable.create(document.getElementById('scene-list'), {
       animation: 120,
       handle: '.drag-handle',
-      onEnd: evt => {
+      onEnd: async evt => {
         const item = scenes.splice(evt.oldIndex, 1)[0];
         scenes.splice(evt.newIndex, 0, item);
-        saveAllToStorage();
+        await saveAllToStorage();
         renderSceneList();
         selectScene(evt.newIndex);
       }
@@ -1219,7 +1227,7 @@
     drawScene(s, false);
   }
 
-  function addOrUpdateScene() {
+  async function addOrUpdateScene() {
     let name = '나레이션';
     if (selectedCharId && selectedCharId !== 'narration' && characters[selectedCharId]) {
       const c = characters[selectedCharId];
@@ -1243,28 +1251,28 @@
       scenes.push({ bg: newScene.bg, charId: selectedCharId, name, text: "다음 내용을 입력하세요.", textEffect:"normal", charEffect:"none", slots });
       selectedIndex = scenes.length - 1;
     }
-    saveAllToStorage();
+    await saveAllToStorage();
     renderSceneList();
     selectScene(selectedIndex);
   }
 
-  function deleteScene(index, event) {
+  async function deleteScene(index, event) {
     event.stopPropagation();
     if (scenes.length <= 1) return;
     scenes.splice(index, 1);
     selectedIndex = Math.max(0, index - 1);
-    saveAllToStorage();
+    await saveAllToStorage();
     renderSceneList();
     selectScene(selectedIndex);
   }
 
-  function saveAllToStorage() {
-    if (currentStoryTitle) stories[currentStoryTitle] = scenes;
-    localStorage.setItem('vns_stories_v9', JSON.stringify(stories));
-    localStorage.setItem('vns_chars_v9', JSON.stringify(characters));
+  async function saveAllToStorage() {
+    if (currentStoryTitle) {
+      stories[currentStoryTitle] = scenes;
+      await supabase.from('stories').upsert({ title: currentStoryTitle, scenes: scenes });
+    }
   }
 
-  /* ── 프리뷰 업데이트 ── */
   function updatePreviewLive() {
     if (isPlayMode) return;
     let name = '나레이션';
@@ -1286,7 +1294,7 @@
     }, false);
   }
 
-  /* ── 씬 렌더 ── */
+  /* ── 비주얼 게임 렌더링 엔진 ── */
   function drawScene(scene, useTyping = false) {
     if (!scene) return;
     document.getElementById('game-screen').style.backgroundImage = `url('${scene.bg}')`;
@@ -1331,7 +1339,6 @@
       });
     }
 
-    // 피팅 탭 실시간 반영
     if (!isPlayMode && document.getElementById('tab-setup').style.display !== 'none') {
       const h = parseInt(document.getElementById('char-height-input').value) || 310;
       const b = parseInt(document.getElementById('char-bottom-input').value) || 90;
@@ -1366,7 +1373,7 @@
     }, speed);
   }
 
-  /* ── 플레이 모드 ── */
+  /* ── 게임 진행 플레이 기능 ── */
   function togglePlayMode(fromHome = false) {
     if (!scenes.length) return;
     isPlayMode = true;
