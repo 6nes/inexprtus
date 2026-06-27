@@ -1435,14 +1435,21 @@
   }
 
   function handleScreenClick() {
+    // ⭐️ [보안 추가] 만약 이미 게임이 끝나서 엔딩 스크린이 뜬 상태라면, 배경을 눌러도 완전히 무시함!
+    const urlParams = new URLSearchParams(window.location.search);
+    const modeParam = urlParams.get('mode');
+    const isEndingVisible = document.getElementById('game-screen').style.backgroundColor === 'rgb(11, 11, 11)' || 
+                            document.getElementById('game-screen').style.backgroundColor === '#0b0b0b';
+    
+    if (modeParam === 'play' && isEndingVisible) {
+      return; // 아무것도 하지 않고 함수를 종료해서 홈 화면으로 가는 걸 원천 차단!
+    }
+
     if (!isPlayMode) return;
     playIndex++;
     if (playIndex < scenes.length) {
       drawScene(scenes[playIndex], true);
     } else {
-      const urlParams = new URLSearchParams(window.location.search);
-      const modeParam = urlParams.get('mode');
-
       if (modeParam === 'play') {
         clearInterval(typingTimer);
         
@@ -1493,7 +1500,6 @@
       }
     }
   }
-
   /* ── 📥 컴퓨터에 저장된 JSON 백업 파일 불러와서 수파베이스에 동기화 ── */
   async function importJSONBackup(event) {
     const file = event.target.files[0];
