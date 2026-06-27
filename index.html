@@ -933,10 +933,12 @@
 </div>
 
 <script>
-  /* ── 🛰️ 수파베이스 연동 설정 완료! ── */
+/* ── 🛰️ 수파베이스 연동 설정 (이름 충돌 해결 버전) ── */
   const SUPABASE_URL = "https://xyacthmcxeryziymouvk.supabase.co";
   const SUPABASE_KEY = "sb_publishable_HsOaCpbpbopn8ErCs6aB-Q_lr4OKj1x";
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  
+  // ⭐️ 변수 이름을 'supabase' 대신 'client'로 바꿨어!
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   /* ── 기본 데이터 구조 ── */
   let stories = {};
@@ -968,7 +970,7 @@
   };
 
   async function loadCharactersFromSupabase() {
-    const { data, error } = await supabase.from('characters').select('*');
+    const { data, error } = await client.from('characters').select('*');
     if (!error && data) {
       characters = {};
       data.forEach(c => {
@@ -981,7 +983,7 @@
   }
 
   async function loadStoriesFromSupabase() {
-    const { data, error } = await supabase.from('stories').select('*');
+    const { data, error } = await client.from('stories').select('*');
     if (!error && data) {
       stories = {};
       data.forEach(s => { stories[s.title] = s.scenes; });
@@ -1040,8 +1042,7 @@
       slots: { left:"", center:"", right:"" }
     }];
 
-    // 서버 저장
-    await supabase.from('stories').upsert({ title: title, scenes: initialScene });
+    await client.from('stories').upsert({ title: title, scenes: initialScene });
     stories[title] = initialScene;
     renderStoryGrid();
   }
@@ -1049,7 +1050,7 @@
   async function deleteStory(title, event) {
     event.stopPropagation();
     if (!confirm(`"${title}"을 삭제할까요? 클라우드에서도 함께 삭제됩니다.`)) return;
-    await supabase.from('stories').delete().eq('title', title);
+    await client.from('stories').delete().eq('title', title);
     delete stories[title];
     renderStoryGrid();
   }
@@ -1118,7 +1119,7 @@
   }
 
   async function execReg(name, club, color, img, h, b) {
-    const { error } = await supabase.from('characters').upsert({
+    const { error } = await client.from('characters').upsert({
       id: name, name, club, color, img, custom_height: h, custom_bottom: b
     });
 
@@ -1269,7 +1270,7 @@
   async function saveAllToStorage() {
     if (currentStoryTitle) {
       stories[currentStoryTitle] = scenes;
-      await supabase.from('stories').upsert({ title: currentStoryTitle, scenes: scenes });
+      await client.from('stories').upsert({ title: currentStoryTitle, scenes: scenes });
     }
   }
 
