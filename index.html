@@ -784,6 +784,11 @@
     <button class="btn btn-primary btn-new-story" onclick="createNewStoryPrompt()">
       + 새 스토리
     </button>
+    
+    <!-- 📥 여기에 복사한 HTML 코드를 쏙 넣어주세요! -->
+    <button class="btn btn-secondary" onclick="document.getElementById('json-file-input').click()" style="margin-left: 8px;">📂 JSON 파일 불러오기</button>
+    <input type="file" id="json-file-input" accept=".json" style="display: none;" onchange="importJSONBackup(event)">
+    
   </nav>
 
   <div class="home-body">
@@ -1410,6 +1415,67 @@
       exitPlayMode();
     }
   }
+
+ function handleScreenClick() {
+    if (!isPlayMode) return;
+    playIndex++;
+    if (playIndex < scenes.length) {
+      drawScene(scenes[playIndex], true);
+    } else {
+      alert('🎬 스토리가 끝났습니다!');
+      exitPlayMode();
+    }
+  } // <- handleScreenClick이 끝나는 지점
+
+  /* ── 📥여기에 복사한 자바스크립트 코드를 통째로 붙여넣어 주세요! ── */
+  async function importJSONBackup(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async function (e) {
+      try {
+        const importedData = JSON.parse(e.target.result);
+        
+        if (!importedData.stories && !importedData.characters && typeof importedData !== 'object') {
+          alert("올바른 비주얼 노벨 백업 파일(JSON)이 아닙니다.");
+          return;
+        }
+
+        if (!confirm("선택한 JSON 파일의 데이터를 클라우드(Supabase)에 업로드하시겠습니까? (기존에 동일한 이름이 있다면 덮어씁니다.)")) return;
+
+        const targetStories = importedData.stories || importedData;
+        for (const title in targetStories) {
+          if (Array.isArray(targetStories[title])) {
+            await client.from('stories').upsert({ title: title, scenes: targetStories[title] });
+            stories[title] = targetStories[title];
+          }
+        }
+
+        if (importedData.characters) {
+          for (const id in importedData.characters) {
+            const c = importedData.characters[id];
+            await client.from('characters').upsert({
+              id: id, name: c.name, club: c.club || '', color: c.color || '#e8450a', img: c.img,
+              custom_height: c.customHeight || 310, custom_bottom: c.customBottom || 90
+            });
+            characters[id] = c;
+          }
+        }
+
+        alert("🎉 컴퓨터에 있던 백업 데이터가 수파베이스 클라우드로 업로드 완료되었습니다!");
+        renderStoryGrid();
+        renderCharacterTags();
+        updateSlotSelectors();
+
+      } catch (err) {
+        alert("파일을 읽는 중 오류가 발생했습니다: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
 </script>
 </body>
 </html>
