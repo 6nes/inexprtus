@@ -957,7 +957,7 @@
   let playIndex = 0;
   let typingTimer;
 
-  /* ── 서버로부터 초기 데이터 로드 (깜빡임 해결 버전) ── */
+  /* ── 서버로부터 초기 데이터 로드 (깜빡임 해결 완료 버전) ── */
   window.onload = async function () {
     // 1. 데이터를 가져오는 동안은 화면이 다 숨겨져 있어서 깜빡이지 않음
     await loadCharactersFromSupabase();
@@ -1090,7 +1090,6 @@
   }
 
   function copyStoryLink(title) {
-    // 🔗 주소 뒤에 &mode=play 를 붙여서 전용 링크를 만들었어!
     const url = `${window.location.origin}${window.location.pathname}?story=${encodeURIComponent(title)}&mode=play`;
     navigator.clipboard.writeText(url)
       .then(() => alert(`"${title}" 🎬보기 전용 플레이 링크가 복사되었습니다! 친구에게 공유해 보세요.`))
@@ -1441,14 +1440,12 @@
     if (playIndex < scenes.length) {
       drawScene(scenes[playIndex], true);
     } else {
-      // 🔗 주소창을 확인해서 '보기 전용(&mode=play)' 모드인지 체크
       const urlParams = new URLSearchParams(window.location.search);
       const modeParam = urlParams.get('mode');
 
       if (modeParam === 'play') {
         clearInterval(typingTimer);
         
-        // 1. 모든 인게임 UI 가리기
         document.getElementById('textbox').style.display = 'none';
         document.getElementById('name-tag').style.display = 'none';
         document.getElementById('click-hint').style.display = 'none';
@@ -1457,11 +1454,8 @@
         document.getElementById('game-screen').style.backgroundImage = 'none';
         document.getElementById('game-screen').style.backgroundColor = '#0b0b0b';
         
-        // 2. 상단 배너를 완벽한 엔딩 스크린 패널로 개조 (이때 종료 버튼 같은 기존 텍스트는 싹 지워짐)
         const banner = document.getElementById('play-mode-banner');
-        
-        // ⭐️ 중요: 배너의 원래 스타일이나 텍스트를 완전히 리셋하고 중앙 정렬 엔딩창으로 바꿈
-        banner.className = ''; // 기존 클래스 제거해서 '플레이 모드 종료' 문구 스타일 초기화
+        banner.className = ''; 
         banner.style.display = 'flex';
         banner.style.justifyContent = 'center';
         banner.style.alignItems = 'center';
@@ -1470,7 +1464,7 @@
         banner.style.left = '0';
         banner.style.width = '100%';
         banner.style.height = '100%';
-        banner.style.backgroundColor = '#0b0b0b'; // 불투명한 완전 검은색
+        banner.style.backgroundColor = '#0b0b0b'; 
         banner.style.zIndex = '99999';
         
         banner.innerHTML = `
@@ -1493,9 +1487,14 @@
         `;
         
         isPlayMode = false; 
+      } else {
+        alert('🎬 스토리가 끝났습니다!');
+        exitPlayMode();
       }
+    }
+  }
 
-  /* ── 📥여기에 복사한 자바스크립트 코드를 통째로 붙여넣어 주세요! ── */
+  /* ── 📥 컴퓨터에 저장된 JSON 백업 파일 불러와서 수파베이스에 동기화 ── */
   async function importJSONBackup(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -1543,7 +1542,6 @@
     reader.readAsText(file);
     event.target.value = '';
   }
-
 </script>
 </body>
 </html>
