@@ -1435,15 +1435,9 @@
   }
 
   function handleScreenClick() {
-    // ⭐️ [보안 추가] 만약 이미 게임이 끝나서 엔딩 스크린이 뜬 상태라면, 배경을 눌러도 완전히 무시함!
+    // 🔗 보기 전용 모드(&mode=play) 체크
     const urlParams = new URLSearchParams(window.location.search);
     const modeParam = urlParams.get('mode');
-    const isEndingVisible = document.getElementById('game-screen').style.backgroundColor === 'rgb(11, 11, 11)' || 
-                            document.getElementById('game-screen').style.backgroundColor === '#0b0b0b';
-    
-    if (modeParam === 'play' && isEndingVisible) {
-      return; // 아무것도 하지 않고 함수를 종료해서 홈 화면으로 가는 걸 원천 차단!
-    }
 
     if (!isPlayMode) return;
     playIndex++;
@@ -1453,31 +1447,39 @@
       if (modeParam === 'play') {
         clearInterval(typingTimer);
         
+        // 1. 기존 인게임 UI 전부 숨기기
         document.getElementById('textbox').style.display = 'none';
         document.getElementById('name-tag').style.display = 'none';
         document.getElementById('click-hint').style.display = 'none';
         ['left','center','right'].forEach(p => document.getElementById(`standing-${p}`).style.display = 'none');
         
+        // 2. 게임 화면을 암전 처리
         document.getElementById('game-screen').style.backgroundImage = 'none';
         document.getElementById('game-screen').style.backgroundColor = '#0b0b0b';
         
+        // 3. 상단 배너를 '전체 화면 차단막' 스타일의 엔딩 화면으로 개조
         const banner = document.getElementById('play-mode-banner');
         banner.className = ''; 
         banner.style.display = 'flex';
         banner.style.justifyContent = 'center';
         banner.style.alignItems = 'center';
-        banner.style.position = 'absolute';
+        banner.style.position = 'fixed'; // 화면에 꽉 박아두기
         banner.style.top = '0';
         banner.style.left = '0';
-        banner.style.width = '100%';
-        banner.style.height = '100%';
+        banner.style.width = '100vw';
+        banner.style.height = '100vh';
         banner.style.backgroundColor = '#0b0b0b'; 
-        banner.style.zIndex = '99999';
+        banner.style.zIndex = '999999'; // 그 어떤 UI보다도 최상위에 위치
+        
+        // ⭐️ [핵심 방어] 이 엔딩 패널 자체를 클릭했을 때 함수가 또 실행되는 걸 원천 차단!
+        banner.onclick = function(e) {
+          e.stopPropagation(); // 클릭 이벤트가 부모(game-screen)로 전달되는 것을 완전히 막음
+        };
         
         banner.innerHTML = `
-          <div style="text-align: center; color: #fff; font-family: sans-serif;">
+          <div style="text-align: center; color: #fff; font-family: sans-serif;" onclick="event.stopPropagation();">
             <h2 style="margin-bottom: 24px; font-size: 24px; letter-spacing: 1px; color: #fff;">🎬 플레이가 완료되었습니다.</h2>
-            <button onclick="window.location.reload()" style="
+            <button onclick="event.stopPropagation(); window.location.reload();" style="
               padding: 14px 28px; 
               font-size: 18px; 
               font-weight: bold; 
@@ -1493,6 +1495,7 @@
           </div>
         `;
         
+        // 더 이상 바깥 클릭 로직이 작동하지 않도록 완전히 꺼버림
         isPlayMode = false; 
       } else {
         alert('🎬 스토리가 끝났습니다!');
