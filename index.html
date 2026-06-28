@@ -716,14 +716,27 @@ function saveCharacterProfile() {
   const club = document.getElementById('char-club').value.trim();
   const color = document.getElementById('char-color').value;
   const fi = document.getElementById('char-file-input');
+  
   if (!name) { alert("이름을 입력해 주세요."); return; }
-  const existing = characters[name];
-  const h = existing?.customHeight || 310, b = existing?.customBottom || 90, parts = existing?.parts || [];
+  
+  // 기존 캐릭터가 있으면 가져오고, 없으면 새 캐릭터용 기본값 세팅
+  const existing = characters && characters[name] ? characters[name] : null;
+  
+  const h = existing?.customHeight || 310;
+  const b = existing?.customBottom || 90;
+  
+  // ⭐️ 핵심: 새 캐릭터 추가일 때는 parts를 빈 배열 [] 대신 string 형태나 기본값 구조로 안전하게 처리
+  const parts = existing?.parts || []; 
+
   if (fi.files && fi.files[0]) {
     const r = new FileReader();
     r.onload = e => execReg(name, club, color, e.target.result, h, b, parts);
     r.readAsDataURL(fi.files[0]);
-  } else execReg(name, club, color, existing?.img || "https://images.vrml.kro.kr/character_sample.png", h, b, parts);
+  } else {
+    // 이미지가 없을 때 기본 샘플 이미지 적용
+    const defaultImg = existing?.img || "https://images.vrml.kro.kr/character_sample.png";
+    execReg(name, club, color, defaultImg, h, b, parts);
+  }
 }
 
 async function execReg(id, name, club, color, img, h, b, parts) {
